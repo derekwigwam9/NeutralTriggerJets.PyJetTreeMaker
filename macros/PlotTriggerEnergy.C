@@ -22,10 +22,11 @@ using namespace std;
 
 
 // io parameters
-static const TString sOutput("eTtrg.averages.d26m2y2018.root");
+static const TString sOutput("pp200py.eTtrgAvg920.d26m2y2018.root");
 static const TString sInPi0("input/py23pi01par.merged.root");
 static const TString sInGam("input/py23gam1par.merged.root");
 static const TString sChain("ParTree");
+static const Bool_t  doEtCut(true);
 
 
 
@@ -56,9 +57,9 @@ void PlotTriggerEnergy() {
 
 
   // make histograms
-  const UInt_t  nBins(50);
-  const Float_t bin1(6.);
-  const Float_t bin2(56.);
+  const UInt_t  nBins(16);
+  const Float_t bin1(7.);
+  const Float_t bin2(23.);
   const TString sPi0("hPi0");
   const TString sGam("hGam");
 
@@ -73,6 +74,23 @@ void PlotTriggerEnergy() {
   const TString sLeaf("Events_Clust_EneT0 * TMath::Sin(2. * TMath::ATan(TMath::Exp(-1. * Events_Clust_etav1)))");
   const TString sCuts("TMath::Abs(Events_Clust_etav1) < 0.9");
 
+  // add eT cut
+  TString sCutsPi(sCuts.Data());
+  TString sCutsGa(sCuts.Data());
+  TString sEtCut(" && (((");
+  sEtCut += sLeaf.Data();
+  sEtCut += ") > 9.) && ((";
+  sEtCut += sLeaf.Data();
+  sEtCut += ") < 20.))";
+  if (doEtCut) {
+    sCutsPi.Append(sEtCut.Data());
+    sCutsGa.Append(sEtCut.Data());
+  }
+  cout << "    Cuts:\n"
+       << "      pi0 = " << sCutsPi.Data() << "\n"
+       << "      gam = " << sCutsGa.Data()
+       << endl; 
+
   TString sDrawPi(sLeaf.Data());
   TString sDrawGa(sLeaf.Data());
   sDrawPi.Append(">>");
@@ -80,8 +98,8 @@ void PlotTriggerEnergy() {
   sDrawPi.Append(sPi0.Data());
   sDrawGa.Append(sGam.Data());
 
-  const Long64_t nPi0  = tPi0 -> Draw(sDrawPi.Data(), sCuts.Data());
-  const Long64_t nGam  = tGam -> Draw(sDrawGa.Data(), sCuts.Data());
+  const Long64_t nPi0  = tPi0 -> Draw(sDrawPi.Data(), sCutsPi.Data());
+  const Long64_t nGam  = tGam -> Draw(sDrawGa.Data(), sCutsGa.Data());
   const Double_t piAvg = hPi0 -> GetMean();
   const Double_t gaAvg = hGam -> GetMean();
   cout << "    Filled histograms:\n"
