@@ -5,7 +5,7 @@
 // This class takes output from Pythia, finds jets, and stores in them in a
 // compact tree.
 //
-// Last updated: 05.19.2017
+// Last updated: 04.17.2018
 
 
 #define StFemtoDstMaker_cxx
@@ -26,6 +26,23 @@ ClassImp(StFemtoDstMaker)
 
 using namespace std;
 using namespace fastjet;
+
+
+
+void StFemtoDstMaker::SetEfficiency(const TString sEffFile, const TString sEffHist) {
+
+  // open file with efficiency histogram
+  TFile *fEff = (TFile*) gROOT -> GetListOfFiles() -> FindObject(sEffFile.Data());
+  if (!fEff || !fEff->IsOpen())
+    fEff = new TFile(sEffFile.Data());
+
+  // grab histogram
+  fEff -> GetObject(sEffHist.Data(), hPtEff);
+  if (!hPtEff)
+    cerr << "WARNING: couldn't grab efficiency histogram! Check input!" << endl;
+
+}  // end 'SetEfficiency(TString, TString)'
+
 
 
 void StFemtoDstMaker::Init(const Int_t nRM, const Int_t tID, const Double_t r, const Double_t a, const Double_t pMin, const Double_t pMax, const Double_t q, const Double_t eMin, const Double_t eMax, const Double_t hTrkMax, const Double_t hTrgMax) {
@@ -281,7 +298,7 @@ void StFemtoDstMaker::Make(const Int_t nTrgs, const Int_t StartEvt, const Int_t 
 
       // if detector-level, apply response
       if ((level != 0) && (chrg != 0.)) {
-        //pT = ApplyDetectorResponse(pT);
+        pT = ApplyDetectorResponse(pT);
       }
 
       if (pT <= -1000.)

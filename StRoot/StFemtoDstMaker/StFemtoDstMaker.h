@@ -5,7 +5,7 @@
 // This class takes output from Pythia, finds jets, and stores in them in a
 // compact tree.
 //
-// Last updated: 05.19.2017
+// Last updated: 04.17.2018
 
 #ifndef StFemtoDstMaker_h
 #define StFemtoDstMaker_h
@@ -300,6 +300,7 @@ public:
   virtual ~StFemtoDstMaker();
 
   // public methods
+  virtual void SetEfficiency(const TString sEffFile, const TString sEffHist);
   virtual void Init(const Int_t nRM=1, const Int_t tID=22, const Double_t r=0.5, const Double_t a=0., const Double_t pMin=0.2, const Double_t pMax=20., const Double_t q=0., const Double_t eMin=8., const Double_t eMax=20., const Double_t hTrkMax=1., const Double_t hTrgMax=1.);
   virtual void Make(const Int_t nTrgs=-1, const Int_t StartEvt=0, const Int_t StopEvt=-1);
   virtual void Finish();
@@ -320,6 +321,10 @@ private:
   Double_t eTmax;
   Double_t EtaTrkMax;
   Double_t EtaTrgMax;
+
+  // eff. and res. histograms
+  TH1D *hPtEff;
+  TH1D *hPtRes;
 
   // private methods
   virtual void     InitTree(TChain *chain);
@@ -353,10 +358,11 @@ StFemtoDstMaker::StFemtoDstMaker(const TString iName, const TString oName, const
     if (!f || !f->IsOpen())
       f = new TFile(iName);
 
+    // detector response simulated at jet-finding stage
     if (level == 0)
       f -> GetObject("ParTree", chain);
     else
-      f -> GetObject("DetTree", chain);
+      f -> GetObject("ParTree", chain);
   }
   InitTree(chain);
 
@@ -576,7 +582,7 @@ Double_t StFemtoDstMaker::ApplyDetectorResponse(const Double_t pTpar) {
   const Double_t sigEff = -4.0;
   const Double_t trkEff = 0.87;
 
-  // calculation
+  // resolution calculation
 /* will add in soon [Derek, 05.16.2017]
   //const Double_t r1    = gRandom -> Gaus(0., (sigPt * pTpar));
   //const Double_t r2    = gRandom -> Gaus(0., sigCst);
@@ -584,10 +590,14 @@ Double_t StFemtoDstMaker::ApplyDetectorResponse(const Double_t pTpar) {
   //const Double_t pTdet = pTpar * (1.0 + res);
 */
   const Double_t pTdet = pTpar;
-  const Double_t eff   = trkEff * (1.0 - exp(sigEff * pTdet));
-  const Double_t pass  = gRandom -> Uniform(0., 1.);
 
-  // return
+  // efficiency calculation
+  const UInt_t   iEff = hPtEff  -> FindBin(pTdet);
+  const Double_t eff  = hPtEff  -> GetBinContent(iEff);
+  const Double_t pass = gRandom -> Uniform(0., 1.);
+
+
+  // determine return value
   Double_t pTreturn = 0.;
   if (pass > eff)
     pTreturn = -1000.;

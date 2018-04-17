@@ -7,7 +7,7 @@
 // to turn on/off production of particle-level and detector-level jets
 // respectively.
 //
-// Last updated: 05.19.2017
+// Last updated: 04.17.2018
 
 #include <TSystem>
 #include <iostream>
@@ -19,10 +19,12 @@ class StFemtoDstMaker;
 
 
 // i/o parameters
-const TString ipFile("./input/Pythia23p.gMerged.root");
-const TString idFile("./input/Pythia23d.gMerged.root");
+const TString ipFile("./input/py23pi01par.merged.root");
+const TString idFile("./input/py23pi01par.merged.root");
+const TString eFile("./input/pp200r9embed.efficiency.moreVariableBins.d11m4y2018.root");
+const TString eHist("hPtEfficiency");
 // trigger parameters
-const Int_t    tID     = 22;
+const Int_t    tID     = 111;
 const Double_t eTmin   = 9.;
 const Double_t eTmax   = 20.;
 const Double_t hTrkMax = 1.;
@@ -58,6 +60,7 @@ void MakeFemtoDst(const Int_t nTrgs=-1, const Int_t StartEvt=0, const Int_t Stop
   // create detector-level jets
   if (detector) {
     StFemtoDstMaker d(idFile, oFile, 1, type);
+    d.SetEfficiency(eFile, eHist);
     d.Init(nRM, tID, rJet, aMin, pTmin, pTmax, qMin, eTmin, eTmax, hTrkMax, hTrgMax);
     d.Make(nTrgs, StartEvt, StopEvt);
     d.Finish();
