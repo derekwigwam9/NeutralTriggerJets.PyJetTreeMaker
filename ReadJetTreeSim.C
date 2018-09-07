@@ -22,20 +22,21 @@ static const Bool_t   DoTrgNorm  = true;
 static const Double_t PiValue = TMath::Pi();
 
 // filepaths
-static const TString iPath("output/CollaborationMeetingJul2018/pp200py.et920pi0.r02rm1chrg.d12m7y2018.root");
-static const TString oPath("pp200py.pTbinRes.et915pi0.r02a005rm1chrg.root");
+static const TString iPath("pp200py.resTestPar.et920pi0.r05rm1chrg.d6m9y2018.root");
+static const TString oPath("pp200py.resTestPlotPar.et920pi0.r05a065rm1chrg.d6m9y2018.root");
 
 // parameters
 static const Double_t GamTsp = 22;
 static const Double_t Pi0Tsp = 111;
+static const Double_t MaxEta = 0.9;
 static const Double_t MinPt  = 9.;
-static const Double_t MaxPt  = 15.;
+static const Double_t MaxPt  = 20.;
 
 // jet parameters
-static const Double_t Rjet     = 0.2;
-static const Double_t MinArea  = 0.05;  // R02: 0.05, R03: 0.2, R04: 0.5, R05: 0.65, R07: 1.2
+static const Double_t Rjet     = 0.5;
+static const Double_t MinArea  = 0.65;  // R02: 0.05, R03: 0.2, R04: 0.35, R05: 0.65, R07: 1.2
 static const Double_t MinJetPt = 0.2;
-static const Double_t MaxJetPt = 60.;
+static const Double_t MaxJetPt = 100.;
 static const Double_t RecoilDf = PiValue / 4.;
 
 
@@ -64,7 +65,7 @@ void ReadJetTreeSim(Bool_t inBatchMode=false) {
   }
 
 
-  // declare Geant event leaves
+  // declare event leaves
   cout << "  Setting branch addresses..." << endl;
   Int_t    EventIndex = 0;
   Double_t Refmult    = 0.;
@@ -75,7 +76,7 @@ void ReadJetTreeSim(Bool_t inBatchMode=false) {
   Double_t Rho        = 0.;
   Double_t Sigma      = 0.;
   Double_t Vz         = 0.;
-  // declare Geant jet leaves
+  // declare jet leaves
   vector<Double_t> *JetEta    = 0;
   vector<Double_t> *JetPt     = 0;
   vector<Double_t> *JetNCons  = 0;
@@ -84,7 +85,7 @@ void ReadJetTreeSim(Bool_t inBatchMode=false) {
   vector<Double_t> *JetPhi    = 0;
   vector<Double_t> *JetE      = 0;
   vector<Double_t> *JetArea   = 0;
-  // declare Geant constituent leaves
+  // declare constituent leaves
   vector<vector<Double_t>> *JetConsPt  = 0;
   vector<vector<Double_t>> *JetConsEta = 0;
   vector<vector<Double_t>> *JetConsPhi = 0;
@@ -92,7 +93,7 @@ void ReadJetTreeSim(Bool_t inBatchMode=false) {
   
 
 
-  // declare Geant branches
+  // declare branches
   TBranch *bEventIndex = 0;
   TBranch *bRefmult    = 0;
   TBranch *bTsp        = 0;
@@ -116,7 +117,7 @@ void ReadJetTreeSim(Bool_t inBatchMode=false) {
   TBranch *bJetConsE   = 0;
 
 
-  // set Geant branches
+  // set branches
   JetTree -> SetBranchAddress("eventIndex", &EventIndex, &bEventIndex);
   JetTree -> SetBranchAddress("Refmult", &Refmult, &bRefmult);
   JetTree -> SetBranchAddress("TSP", &TSP, &bTsp);
@@ -127,7 +128,6 @@ void ReadJetTreeSim(Bool_t inBatchMode=false) {
   JetTree -> SetBranchAddress("Sigma", &Sigma, &bSigma);
   JetTree -> SetBranchAddress("Vz", &Vz,&bVz);
   JetTree -> SetBranchAddress("JetIndex", &JetIndex, &bJetIndex);
-  JetTree -> SetBranchAddress("JetEta", &JetEta, &bJetEta);
   JetTree -> SetBranchAddress("JetPt", &JetPt, &bJetPt);
   JetTree -> SetBranchAddress("JetNCons", &JetNCons, &bJetNCons);
   JetTree -> SetBranchAddress("JetEta", &JetEta, &bJetEta);
@@ -159,10 +159,8 @@ void ReadJetTreeSim(Bool_t inBatchMode=false) {
   TH2D *hJetPtVsA[2];
 
   // variable pT binning
-  //const UInt_t   pTnumVar(36);
-  const UInt_t   pTnumVar(15);
-  //const Double_t pTbinVar[37] = {-1., -0.8, -0.6, -0.4, -0.2, 0., 0.2, 0.4, 0.6, 0.8, 1., 1.5, 2., 2.5, 3., 3.5, 4., 5., 6., 7., 8., 9., 10., 12., 14., 16., 18., 20., 22.5, 25., 27.5, 30., 35., 40., 50., 60., 80.};
-  const Double_t pTbinVar[16] = {0., 0.2, 0.6, 1., 1.5, 2., 3., 5., 8., 12., 17., 23., 30., 38., 47., 57.};
+  const UInt_t   pTnumVar(22);
+  const Double_t pTbinVar[23] = {-5., -3., -2., -1.5, -1., -0.6, -0.2, 0., 0.2, 0.6, 1., 1.5, 2., 3., 5., 8., 12., 17., 23., 30., 38., 47., 57.};
 
   // non-variable binning
   const Int_t    mNum  = 200;
@@ -273,6 +271,15 @@ void ReadJetTreeSim(Bool_t inBatchMode=false) {
     }
     else
       cout << "    Processing event " << i+1 << "/" << nEvts << "..." << endl;
+
+
+    // trigger cuts
+    const Double_t hTrg  = TrgEta;
+    const Double_t eTtrg = TrgEt;
+
+    const Bool_t isInTrgEtaCut = (TMath::Abs(hTrg) < MaxEta);
+    const Bool_t isInTrgEtCut  = ((eTtrg > MinPt) && (eTtrg < MaxPt));
+    if (!isInTrgEtaCut || !isInTrgEtCut) continue;
 
 
     // determine triggers [0 for pi0, 1 for gamma-rich]
