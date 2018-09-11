@@ -29,7 +29,7 @@ using namespace fastjet;
 
 
 
-void StFemtoDstMaker::SetEfficiency(const TString sEffFile, const TString sEffHist) {
+void StFemtoDstMaker::SetEfficiency(const TString sEffFile, const TString sEffHist, const Bool_t doEffAdjust, const Float_t effNudge) {
 
   // open file with efficiency histogram
   TFile *fEff = (TFile*) gROOT -> GetListOfFiles() -> FindObject(sEffFile.Data());
@@ -40,6 +40,11 @@ void StFemtoDstMaker::SetEfficiency(const TString sEffFile, const TString sEffHi
   fEff -> GetObject(sEffHist.Data(), hPtEff);
   if (!hPtEff)
     cerr << "WARNING: couldn't grab efficiency histogram! Check input!" << endl;
+
+
+  // for systematics
+  doEffSys  = doEffAdjust;
+  effAdjust = effNudge;
 
 }  // end 'SetEfficiency(TString, TString)'
 
@@ -58,6 +63,7 @@ void StFemtoDstMaker::Init(const Int_t nRM, const Int_t tID, const Double_t r, c
   eTmax     = eMax;
   EtaTrkMax = hTrkMax;
   EtaTrgMax = hTrgMax;
+  oFile     -> cd();
 
   // initialize output tree
   fDst = new TTree("femtoDST", "A compact tree of jets");
@@ -108,76 +114,85 @@ void StFemtoDstMaker::Init(const Int_t nRM, const Int_t tID, const Double_t r, c
   const Double_t a2   = 5.;
   dQA -> cd();
   // initialize event histograms
-  hRefmult   = new TH1D("hRefmult", "Reference mult.", 200, 0., 200.);
-  hTSP       = new TH1D("hTSP", "TSP (absolute value of trigger ID)", nTSP, tsp1, tsp2);
-  hEtTrg     = new TH1D("hEtTrg", "Trigger e_{T}", nPt, pT1, pT2);
-  hFtrg      = new TH1D("hFtrg", "Trigger #varphi", nDf, dF1, dF2);
-  hHtrg      = new TH1D("hHtrg", "Trigger #eta", nH, h1, h2);
-  hRho       = new TH1D("hRho", "Median background energy density, #rho", nR, r1, r2);
-  hNjet      = new TH1D("hNjet", "No. of jets", 100, 0., 100.);
-  hNjetG17   = new TH1D("hNjetG17", "No. of jets with p_{T}^{jet}>17 GeV/c", 200, 0., 200.);
-  hNjetL17   = new TH1D("hNjetL17", "No. of jets with p_{T}^{jet}<17 GeV/c", 200, 0., 200.);
-  hNtrk      = new TH1D("hNtrk", "No. of tracks passing cuts", 200, 0., 200.);
-  hNtrkG1    = new TH1D("hNtrkG1", "No. of tracks with p_{T}>1 GeV/c", 200, 0., 200.);
-  hNtrkG2    = new TH1D("hNtrkG2", "No. of tracks with p_{T}>2 GeV/c", 200, 0., 200.);
+  hRefmult    = new TH1D("hRefmult", "Reference mult.", 200, 0., 200.);
+  hTSP        = new TH1D("hTSP", "TSP (absolute value of trigger ID)", nTSP, tsp1, tsp2);
+  hEtTrg      = new TH1D("hEtTrg", "Trigger e_{T}", nPt, pT1, pT2);
+  hFtrg       = new TH1D("hFtrg", "Trigger #varphi", nDf, dF1, dF2);
+  hHtrg       = new TH1D("hHtrg", "Trigger #eta", nH, h1, h2);
+  hRho        = new TH1D("hRho", "Median background energy density, #rho", nR, r1, r2);
+  hNjet       = new TH1D("hNjet", "No. of jets", 100, 0., 100.);
+  hNjetG17    = new TH1D("hNjetG17", "No. of jets with p_{T}^{jet}>17 GeV/c", 200, 0., 200.);
+  hNjetL17    = new TH1D("hNjetL17", "No. of jets with p_{T}^{jet}<17 GeV/c", 200, 0., 200.);
+  hNtrk       = new TH1D("hNtrk", "No. of tracks passing cuts", 200, 0., 200.);
+  hNtrkG1     = new TH1D("hNtrkG1", "No. of tracks with p_{T}>1 GeV/c", 200, 0., 200.);
+  hNtrkG2     = new TH1D("hNtrkG2", "No. of tracks with p_{T}>2 GeV/c", 200, 0., 200.);
   // initialize track histograms
-  hPtTrk     = new TH1D("hPtTrk", "Track p_{T}", nPt, pT1, pT2);
-  hPxTrk     = new TH1D("hPxTrk", "Track p_{x}", nP, p1, p2);
-  hPyTrk     = new TH1D("hPyTrk", "Track p_{y}", nP, p1, p2);
-  hPzTrk     = new TH1D("hPzTrk", "Track p_{z}", nP, p1, p2);
-  hDfTrk     = new TH1D("hDfTrk", "Track #Delta#varphi", nDf, dF1, dF2);
-  hDfTrkG1   = new TH1D("hDfTrkG1", "#Delta#varphi of tracks with p_{T}>1 GeV/c", nDf, dF1, dF2);
-  hDfTrkG2   = new TH1D("hDfTrkG2", "#Delta#varphi of tracks with p_{T}>2 GeV/c", nDf, dF1, dF2);
-  hHtrk      = new TH1D("hHtrk", "Track #eta", nH, h1, h2);
-  hPtVsDfTrk = new TH2D("hPtVsDfTrk", "Track p_{T} vs. #Delta#varphi; #varphi; p_{T}", nDf, dF1, dF2, nPt, pT1, pT2);
+  hPtTrk      = new TH1D("hPtTrk", "Track p_{T}", nPt, pT1, pT2);
+  hPxTrk      = new TH1D("hPxTrk", "Track p_{x}", nP, p1, p2);
+  hPyTrk      = new TH1D("hPyTrk", "Track p_{y}", nP, p1, p2);
+  hPzTrk      = new TH1D("hPzTrk", "Track p_{z}", nP, p1, p2);
+  hDfTrk      = new TH1D("hDfTrk", "Track #Delta#varphi", nDf, dF1, dF2);
+  hDfTrkG1    = new TH1D("hDfTrkG1", "#Delta#varphi of tracks with p_{T}>1 GeV/c", nDf, dF1, dF2);
+  hDfTrkG2    = new TH1D("hDfTrkG2", "#Delta#varphi of tracks with p_{T}>2 GeV/c", nDf, dF1, dF2);
+  hHtrk       = new TH1D("hHtrk", "Track #eta", nH, h1, h2);
+  hPtEffPar   = new TH1D("hPtEffPar", "Particle-lvl. track p_{T}", nPt, pT1, pT2);
+  hPtEffDet   = new TH1D("hPtEffDet", "Detector-lvl. track p_{T}", nPt, pT1, pT2);
+  hPtEffCheck = new TH1D("hPtEffCheck", "Efficiency check", nPt, pT1, pT2);
+  hPtRes1D    = new TH1D("hPtRes1D", "", 200, -10., 10.);
+  hPtRes2D    = new TH2D("hPtRes2D", "", 300, 0., 30., 200, -10., 10.);
+  hPtVsDfTrk  = new TH2D("hPtVsDfTrk", "Track p_{T} vs. #Delta#varphi; #varphi; p_{T}", nDf, dF1, dF2, nPt, pT1, pT2);
   // initialize jet histograms
-  hPtReco    = new TH1D("hPtReco", "Jet p_{T}^{raw} (p_{T}^{reco})", nPt, pT1, pT2);
-  hPtCorr    = new TH1D("hPtCorr", "Jet p_{T}^{corr}= p_{T}^{raw}-#rhoA", nPt, pT1, pT2);
-  hPtRE      = new TH1D("hPtRE", "p_{T}^{corr} for recoil jets", nPt, pT1, pT2);
-  hPtUE      = new TH1D("hPtUE", "p_{T}^{corr} for 'uncorrelated' jets", nPt, pT1, pT2);
-  hPtSub     = new TH1D("hPtSub", "p_{T}^{corr}(RE) - p_{T}^{corr}(UE)", nPt, pT1, pT2);
-  hDfJet     = new TH1D("hDfJet", "Jet #Delta#varphi", nDf, dF1, dF2);
-  hHjet      = new TH1D("hHjet", "Jet #eta", nH, h1, h2);
-  hAjet      = new TH1D("hAjet", "Jet area", nA, a1, a2);
+  hPtReco     = new TH1D("hPtReco", "Jet p_{T}^{raw} (p_{T}^{reco})", nPt, pT1, pT2);
+  hPtCorr     = new TH1D("hPtCorr", "Jet p_{T}^{corr}= p_{T}^{raw}-#rhoA", nPt, pT1, pT2);
+  hPtRE       = new TH1D("hPtRE", "p_{T}^{corr} for recoil jets", nPt, pT1, pT2);
+  hPtUE       = new TH1D("hPtUE", "p_{T}^{corr} for 'uncorrelated' jets", nPt, pT1, pT2);
+  hPtSub      = new TH1D("hPtSub", "p_{T}^{corr}(RE) - p_{T}^{corr}(UE)", nPt, pT1, pT2);
+  hDfJet      = new TH1D("hDfJet", "Jet #Delta#varphi", nDf, dF1, dF2);
+  hHjet       = new TH1D("hHjet", "Jet #eta", nH, h1, h2);
+  hAjet       = new TH1D("hAjet", "Jet area", nA, a1, a2);
   // initialize cst. histograms
-  hPtCst     = new TH1D("hPtCst", "Constituent p_{T}", nPt, pT1, pT2);
-  hDfCst     = new TH1D("hDfCst", "Constituent #Delta#varphi", nDf, dF1, dF2);
-  hHcst      = new TH1D("hHcst", "Constituent #eta", nH, h1, h2);
+  hPtCst      = new TH1D("hPtCst", "Constituent p_{T}", nPt, pT1, pT2);
+  hDfCst      = new TH1D("hDfCst", "Constituent #Delta#varphi", nDf, dF1, dF2);
+  hHcst       = new TH1D("hHcst", "Constituent #eta", nH, h1, h2);
   // set errors
-  hRefmult   -> Sumw2();
-  hTSP       -> Sumw2();
-  hEtTrg     -> Sumw2();
-  hFtrg      -> Sumw2();
-  hHtrg      -> Sumw2();
-  hRho       -> Sumw2();
-  hNjet      -> Sumw2();
-  hNjetG17   -> Sumw2();
-  hNjetL17   -> Sumw2();
-  hNtrk      -> Sumw2();
-  hNtrkG1    -> Sumw2();
-  hNtrkG2    -> Sumw2();
-  hPtTrk     -> Sumw2();
-  hPxTrk     -> Sumw2();
-  hPyTrk     -> Sumw2();
-  hPzTrk     -> Sumw2();
-  hDfTrk     -> Sumw2();
-  hDfTrkG1   -> Sumw2();
-  hDfTrkG2   -> Sumw2();
-  hHtrk      -> Sumw2();
-  hPtVsDfTrk -> Sumw2();
-  hPtReco    -> Sumw2();
-  hPtCorr    -> Sumw2();
-  hPtRE      -> Sumw2();
-  hPtUE      -> Sumw2();
-  hPtSub     -> Sumw2();
-  hDfJet     -> Sumw2();
-  hHjet      -> Sumw2();
-  hAjet      -> Sumw2();
-  hPtCst     -> Sumw2();
-  hDfCst     -> Sumw2();
-  hHcst      -> Sumw2();
-  oFile      -> cd();
-
+  hRefmult    -> Sumw2();
+  hTSP        -> Sumw2();
+  hEtTrg      -> Sumw2();
+  hFtrg       -> Sumw2();
+  hHtrg       -> Sumw2();
+  hRho        -> Sumw2();
+  hNjet       -> Sumw2();
+  hNjetG17    -> Sumw2();
+  hNjetL17    -> Sumw2();
+  hNtrk       -> Sumw2();
+  hNtrkG1     -> Sumw2();
+  hNtrkG2     -> Sumw2();
+  hPtTrk      -> Sumw2();
+  hPxTrk      -> Sumw2();
+  hPyTrk      -> Sumw2();
+  hPzTrk      -> Sumw2();
+  hDfTrk      -> Sumw2();
+  hDfTrkG1    -> Sumw2();
+  hDfTrkG2    -> Sumw2();
+  hHtrk       -> Sumw2();
+  hPtEffPar   -> Sumw2();
+  hPtEffDet   -> Sumw2();
+  hPtEffCheck -> Sumw2();
+  hPtRes1D    -> Sumw2();
+  hPtRes2D    -> Sumw2();
+  hPtVsDfTrk  -> Sumw2();
+  hPtReco     -> Sumw2();
+  hPtCorr     -> Sumw2();
+  hPtRE       -> Sumw2();
+  hPtUE       -> Sumw2();
+  hPtSub      -> Sumw2();
+  hDfJet      -> Sumw2();
+  hHjet       -> Sumw2();
+  hAjet       -> Sumw2();
+  hPtCst      -> Sumw2();
+  hDfCst      -> Sumw2();
+  hHcst       -> Sumw2();
+  oFile       -> cd();
 
   femto.Reset();
 
@@ -310,7 +325,6 @@ void StFemtoDstMaker::Make(const Int_t nTrgs, const Int_t StartEvt, const Int_t 
       }
 
       // track cuts
-      Double_t P = sqrt(pX*pX + pY*pY + pZ*pZ);
       Double_t E = sqrt(pX*pX + pY*pY + pZ*pZ + PionMass*PionMass);
       if ((pT < pTmin) || (pT > pTmax))
         continue;
@@ -503,6 +517,9 @@ void StFemtoDstMaker::Make(const Int_t nTrgs, const Int_t StartEvt, const Int_t 
 
 void StFemtoDstMaker::Finish() {
 
+  // for checking efficiency
+  if (level != 0) hPtEffCheck -> Divide(hPtEffDet, hPtEffPar, 1., 1.);
+
   // normalize histograms
   const Int_t    nTrg   = hRefmult -> GetEntries();
   const Double_t tspBin = hTSP     -> GetBinWidth(17);
@@ -578,43 +595,49 @@ void StFemtoDstMaker::Finish() {
        << endl;
 
 
+
   // save and close file
-  oFile      -> cd("QA");
-  hRefmult   -> Write();
-  hTSP       -> Write();
-  hEtTrg     -> Write();
-  hFtrg      -> Write();
-  hHtrg      -> Write();
-  hRho       -> Write();
-  hNjet      -> Write();
-  hNjetG17   -> Write();
-  hNjetL17   -> Write();
-  hNtrk      -> Write();
-  hNtrkG1    -> Write();
-  hNtrkG2    -> Write();
-  hPtTrk     -> Write();
-  hPxTrk     -> Write();
-  hPyTrk     -> Write();
-  hPzTrk     -> Write();
-  hDfTrk     -> Write();
-  hDfTrkG1   -> Write();
-  hDfTrkG2   -> Write();
-  hHtrk      -> Write();
-  hPtVsDfTrk -> Write();
-  hPtReco    -> Write();
-  hPtCorr    -> Write();
-  hPtRE      -> Write();
-  hPtUE      -> Write();
-  hPtSub     -> Write();
-  hDfJet     -> Write();
-  hHjet      -> Write();
-  hAjet      -> Write();
-  hPtCst     -> Write();
-  hDfCst     -> Write();
-  hHcst      -> Write();
-  oFile      -> cd();
-  fDst       -> Write();
-  oFile      -> Close();
+  oFile       -> cd("QA");
+  hRefmult    -> Write();
+  hTSP        -> Write();
+  hEtTrg      -> Write();
+  hFtrg       -> Write();
+  hHtrg       -> Write();
+  hRho        -> Write();
+  hNjet       -> Write();
+  hNjetG17    -> Write();
+  hNjetL17    -> Write();
+  hNtrk       -> Write();
+  hNtrkG1     -> Write();
+  hNtrkG2     -> Write();
+  hPtTrk      -> Write();
+  hPxTrk      -> Write();
+  hPyTrk      -> Write();
+  hPzTrk      -> Write();
+  hDfTrk      -> Write();
+  hDfTrkG1    -> Write();
+  hDfTrkG2    -> Write();
+  hHtrk       -> Write();
+  hPtVsDfTrk  -> Write();
+  hPtReco     -> Write();
+  hPtCorr     -> Write();
+  hPtRE       -> Write();
+  hPtUE       -> Write();
+  hPtSub      -> Write();
+  hDfJet      -> Write();
+  hHjet       -> Write();
+  hAjet       -> Write();
+  hPtCst      -> Write();
+  hDfCst      -> Write();
+  hHcst       -> Write();
+  hPtEffPar   -> Write();
+  hPtEffDet   -> Write();
+  hPtEffCheck -> Write();
+  hPtRes1D    -> Write();
+  hPtRes2D    -> Write();
+  oFile       -> cd();
+  fDst        -> Write();
+  oFile       -> Close();
 
   cout << "  Done!\n" << endl;
 

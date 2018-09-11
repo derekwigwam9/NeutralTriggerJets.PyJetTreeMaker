@@ -280,6 +280,11 @@ public:
   TH1D *hDfTrkG1;
   TH1D *hDfTrkG2;
   TH1D *hHtrk;
+  TH1D *hPtEffPar;
+  TH1D *hPtEffDet;
+  TH1D *hPtEffCheck;
+  TH1D *hPtRes1D;
+  TH2D *hPtRes2D;
   TH2D *hPtVsDfTrk;
   // QA jet histograms
   TH1D *hPtReco;
@@ -300,7 +305,7 @@ public:
   virtual ~StFemtoDstMaker();
 
   // public methods
-  virtual void SetEfficiency(const TString sEffFile, const TString sEffHist);
+  virtual void SetEfficiency(const TString sEffFile="", const TString sEffHist="", const Bool_t doEffAdjust=false, const Float_t effNudge=0.);
   virtual void Init(const Int_t nRM=1, const Int_t tID=22, const Double_t r=0.5, const Double_t a=0., const Double_t pMin=0.2, const Double_t pMax=20., const Double_t q=0., const Double_t eMin=8., const Double_t eMax=20., const Double_t hTrkMax=1., const Double_t hTrgMax=1.);
   virtual void Make(const Int_t nTrgs=-1, const Int_t StartEvt=0, const Int_t StopEvt=-1);
   virtual void Finish();
@@ -312,6 +317,8 @@ private:
   Int_t    type;
   Int_t    Nrm;
   Int_t    trigID;
+  Bool_t   doEffSys;
+  Float_t  effAdjust;
   Double_t Rjet;
   Double_t Amin;
   Double_t pTmin;
@@ -324,7 +331,6 @@ private:
 
   // eff. and res. histograms
   TH1D *hPtEff;
-  TH1D *hPtRes;
 
   // private methods
   virtual void     InitTree(TChain *chain);
@@ -577,32 +583,45 @@ Long64_t StFemtoDstMaker::LoadTree(const Long64_t entry) {
 Double_t StFemtoDstMaker::ApplyDetectorResponse(const Double_t pTpar) {
 
   // parameters
+  const Double_t sigCst = 0.014;
   const Double_t sigPt  = 0.01;
-  const Double_t sigCst = 0.017;
-  const Double_t sigEff = -4.0;
-  const Double_t trkEff = 0.87;
+  const Double_t sigPt2 = 0.001;
+
 
   // resolution calculation
-/* will add in soon [Derek, 05.16.2017]
-  //const Double_t r1    = gRandom -> Gaus(0., (sigPt * pTpar));
-  //const Double_t r2    = gRandom -> Gaus(0., sigCst);
-  //const Double_t res   = r1 + r2;
-  //const Double_t pTdet = pTpar * (1.0 + res);
-*/
-  const Double_t pTdet = pTpar;
+  const Double_t res   = sigCst + (sigPt * pTpar) + (sigPt2 * (pTpar * pTpar));
+  const Double_t smear = gRandom -> Gaus(0., res);
 
   // efficiency calculation
-  const UInt_t   iEff = hPtEff  -> FindBin(pTdet);
+  const UInt_t   iEff = hPtEff  -> FindBin(pTpar);
   const Double_t eff  = hPtEff  -> GetBinContent(iEff);
   const Double_t pass = gRandom -> Uniform(0., 1.);
+
+  // adjust eff and res
+  Double_t effUse(eff);
+  if (doEffSys) {
+    const Double_t effNew = eff * (1. + effAdjust);
+    effUse = effNew;
+  }
+
+  // for QA
+  const Double_t pTdet = pTpar + smear;
+  const Double_t pTres = (pTpar - pTdet) / pTpar;
+  if (pass <= effUse) {
+    hPtRes1D -> Fill(pTres);
+    hPtRes2D -> Fill(pTpar, pTres);
+  }
 
 
   // determine return value
   Double_t pTreturn = 0.;
-  if (pass > eff)
+  if (pass > effUse)
     pTreturn = -1000.;
-  else
-    pTreturn = pTdet;
+  else {
+    hPtEffDet -> Fill(pTpar);
+    pTreturn  = pTdet;
+  }
+  hPtEffPar -> Fill(pTpar);
 
   return pTreturn;
 
