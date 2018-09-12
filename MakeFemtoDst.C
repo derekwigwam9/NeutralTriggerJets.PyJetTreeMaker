@@ -26,16 +26,19 @@ const TString eHist("hPtEfficiency");
 // trigger parameters
 const Int_t    tID     = 111;
 const Double_t eTmin   = 9.;
-const Double_t eTmax   = 20.;
+const Double_t eTmax   = 11.;
 const Double_t hTrkMax = 1.;
 const Double_t hTrgMax = 0.9;
 // jet parameters
 const Int_t    nRM   = 1;
-const Double_t rJet  = 0.3;
-const Double_t aMin  = 0.2;
+const Double_t rJet  = 0.2;
+const Double_t aMin  = 0.05;
 const Double_t pTmin = 0.2;
 const Double_t pTmax = 20.;
 const Double_t qMin  = 0.15;
+// systematic parameters
+const Bool_t  effSys    = true;
+const Float_t effAdjust = 0.05;
 
 
 
@@ -60,7 +63,7 @@ void MakeFemtoDst(const Int_t nTrgs=-1, const Int_t StartEvt=0, const Int_t Stop
   // create detector-level jets
   if (detector) {
     StFemtoDstMaker d(idFile, oFile, 1, type);
-    d.SetEfficiency(eFile, eHist);
+    d.SetEfficiency(eFile, eHist, effSys, effAdjust);
     d.Init(nRM, tID, rJet, aMin, pTmin, pTmax, qMin, eTmin, eTmax, hTrkMax, hTrgMax);
     d.Make(nTrgs, StartEvt, StopEvt);
     d.Finish();

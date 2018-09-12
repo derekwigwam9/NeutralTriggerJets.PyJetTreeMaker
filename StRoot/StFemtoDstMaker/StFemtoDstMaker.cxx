@@ -42,6 +42,11 @@ void StFemtoDstMaker::SetEfficiency(const TString sEffFile, const TString sEffHi
     cerr << "WARNING: couldn't grab efficiency histogram! Check input!" << endl;
 
 
+  // fit efficiency (for high pT)
+  const Double_t pTfit1 = 3.;
+  const Double_t pTfit2 = 7.;
+  hPtEff -> Fit("pol0", "Q0", "F", pTfit1, pTfit2);
+
   // for systematics
   doEffSys  = doEffAdjust;
   effAdjust = effNudge;

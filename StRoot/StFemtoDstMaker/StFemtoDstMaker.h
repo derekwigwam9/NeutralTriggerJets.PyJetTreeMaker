@@ -10,6 +10,7 @@
 #ifndef StFemtoDstMaker_h
 #define StFemtoDstMaker_h
 
+#include "TF1.h"
 #include "TH1.h"
 #include "TH2.h"
 #include "TROOT.h"
@@ -583,9 +584,11 @@ Long64_t StFemtoDstMaker::LoadTree(const Long64_t entry) {
 Double_t StFemtoDstMaker::ApplyDetectorResponse(const Double_t pTpar) {
 
   // parameters
-  const Double_t sigCst = 0.014;
-  const Double_t sigPt  = 0.01;
-  const Double_t sigPt2 = 0.001;
+  const Double_t sigCst   = 0.014;
+  const Double_t sigPt    = 0.01;
+  const Double_t sigPt2   = 0.001;
+  const Double_t bigPt    = 3.;
+  const Bool_t   isHighPt = (pTpar > bigPt);
 
 
   // resolution calculation
@@ -593,11 +596,17 @@ Double_t StFemtoDstMaker::ApplyDetectorResponse(const Double_t pTpar) {
   const Double_t smear = gRandom -> Gaus(0., res);
 
   // efficiency calculation
-  const UInt_t   iEff = hPtEff  -> FindBin(pTpar);
-  const Double_t eff  = hPtEff  -> GetBinContent(iEff);
-  const Double_t pass = gRandom -> Uniform(0., 1.);
+  UInt_t   iEff(0);
+  Double_t eff(0.);
+  if (isHighPt)
+    eff = hPtEff -> GetFunction("pol0") -> GetParameter(0);
+  else {
+    iEff = hPtEff -> FindBin(pTpar);
+    eff  = hPtEff -> GetBinContent(iEff); 
+  }
+  Double_t pass = gRandom -> Uniform(0., 1.);
 
-  // adjust eff and res
+  // adjust eff
   Double_t effUse(eff);
   if (doEffSys) {
     const Double_t effNew = eff * (1. + effAdjust);
